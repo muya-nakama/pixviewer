@@ -20,7 +20,7 @@ public class MainActivity extends Activity {
   super.onCreate(state);
   updater=new AppUpdater(this);
   if(state!=null)updater.restore(state);
-  LinearLayout root=new LinearLayout(this); root.setOrientation(1); root.setBackgroundColor(Color.WHITE);
+  LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(Color.WHITE);
   root.setOnApplyWindowInsetsListener((v,i)->{ android.graphics.Insets x=i.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()); v.setPadding(x.left,x.top,x.right,x.bottom); return i; });
   setContentView(root);
   LinearLayout toolbar=new LinearLayout(this); root.addView(toolbar);
@@ -51,7 +51,7 @@ public class MainActivity extends Activity {
  private void button(LinearLayout row,String text,Runnable action){Button b=new Button(this);b.setText(text);b.setTextSize(12);row.addView(b,new LinearLayout.LayoutParams(0,(int)(48*getResources().getDisplayMetrics().density),1));b.setOnClickListener(v->action.run());}
  private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_LONG).show();}
  private void search(){
-  LinearLayout box=new LinearLayout(this);box.setOrientation(1);box.setPadding(24,8,24,8);
+  LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(24,8,24,8);
   EditText query=new EditText(this);query.setSingleLine(true);query.setHint("タグ・タイトルなど");box.addView(query);
   Spinner kind=new Spinner(this);kind.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"イラスト・漫画","イラスト","漫画","小説"}));box.addView(kind);
   Spinner match=new Spinner(this);match.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"タグ部分一致","タグ完全一致","タイトル・キャプション"}));box.addView(match);
@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
   if(id.isEmpty()){userId();return;}
   web.loadUrl(HOME+"users/"+id+"/following?rest="+(hidden?"hide":"show"));
  }
- private void userId(){EditText id=new EditText(this);id.setInputType(2);id.setHint("自分のプロフィールURLの数字");id.setText(getPreferences(0).getString("userId",""));new AlertDialog.Builder(this).setTitle("自分のpixivユーザーID").setMessage("公開／非公開を正しく開くため、ログイン中の自分のIDを指定してください。アカウント変更時は更新が必要です。").setView(id).setNegativeButton("閉じる",null).setPositiveButton("保存",(d,w)->{String value=id.getText().toString().trim();if(value.matches("[1-9][0-9]*")){getPreferences(0).edit().putString("userId",value).apply();follow(false);}else toast("数字のユーザーIDを入力してください");}).show();}
+ private void userId(){EditText id=new EditText(this);id.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);id.setHint("自分のプロフィールURLの数字");id.setText(getPreferences(0).getString("userId",""));new AlertDialog.Builder(this).setTitle("自分のpixivユーザーID").setMessage("公開／非公開を正しく開くため、ログイン中の自分のIDを指定してください。アカウント変更時は更新が必要です。").setView(id).setNegativeButton("閉じる",null).setPositiveButton("保存",(d,w)->{String value=id.getText().toString().trim();if(value.matches("[1-9][0-9]*")){getPreferences(0).edit().putString("userId",value).apply();follow(false);}else toast("数字のユーザーIDを入力してください");}).show();}
  private void settings(){new AlertDialog.Builder(this).setTitle("設定").setItems(new String[]{"アプリの更新（"+BuildConfig.VERSION_NAME+"）","公式ログイン画面","自分のユーザーID","再読み込み","端末のログイン情報を消去","ダウンロード済みの更新をインストール"},(d,w)->{switch(w){case 5:updater.installDownloaded();break;case 0:updater.check();break;case 1:web.loadUrl("https://accounts.pixiv.net/login");break;case 2:userId();break;case 3:web.reload();break;case 4:new AlertDialog.Builder(this).setMessage("このアプリのログイン情報とキャッシュを消去しますか？").setNegativeButton("キャンセル",null).setPositiveButton("消去",(a,b)->{web.stopLoading();web.loadUrl("about:blank");CookieManager.getInstance().removeAllCookies(ok->{CookieManager.getInstance().flush();WebStorage.getInstance().deleteAllData();web.clearCache(true);web.clearHistory();getPreferences(0).edit().clear().apply();web.loadUrl(HOME);});}).show();}}).show();}
  private void sort(){
   String url=web.getUrl();if(url==null || !"www.pixiv.net".equals(Uri.parse(url).getHost()) || !Uri.parse(url).getPath().startsWith("/tags/")){toast("作品の検索結果を開いてから選んでください");return;}
