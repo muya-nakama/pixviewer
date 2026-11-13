@@ -1,0 +1,26 @@
+plugins { id 'com.android.application' }
+android {
+ namespace 'jp.muya.pixivviewer'
+ compileSdk 35
+ defaultConfig {
+  applicationId 'jp.muya.pixivviewer'
+  minSdk 33
+  targetSdk 35
+  versionCode (project.findProperty('appVersionCode') ?: '2').toInteger()
+  versionName project.findProperty('appVersionName') ?: '0.2.0'
+ }
+ buildFeatures { buildConfig true }
+ signingConfigs {
+  release {
+   if (System.getenv('PIXVIEWER_KEYSTORE')) {
+    storeFile file(System.getenv('PIXVIEWER_KEYSTORE'))
+    storePassword System.getenv('PIXVIEWER_STORE_PASSWORD')
+    keyAlias 'pixviewer'
+    keyPassword System.getenv('PIXVIEWER_STORE_PASSWORD')
+   }
+  }
+ }
+ buildTypes { release { signingConfig signingConfigs.release; minifyEnabled false } }
+ compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies { implementation 'androidx.core:core:1.13.1'; testImplementation 'junit:junit:4.13.2' }
