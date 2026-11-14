@@ -40,3 +40,12 @@ Android 13以降向けの非公式pixivビューア。アプリ名・リポジ�
 - https://developer.android.com/studio/publish/app-signing
 - https://developer.android.com/reference/androidx/core/content/FileProvider
 - https://github.com/FreeNowOrg/PixivNow/blob/master/docs/pixiv-web-api.md
+
+## ログイン経路の修正
+メール・パスワード／Xの認証はWebView内で継続し、途中のOAuth URLを外部ブラウザへ渡さない。
+認証画面の表示中だけサードパーティCookieを許可。埋め込みHTTPS認証画面の遷移を妨げない。
+Googleなど未対応の認証は案内を表示。外部ブラウザはpixivトップから独立して利用し、アプリとログイン状態を共有しない。
+設定の「ログインの案内・接続状態」で再開始できる。診断表示はホスト名・HTTPエラー・WebView版のみで、URLクエリ・認証コード・Cookieを表示しない。
+
+実機確認：更新後、設定からログインを再開始 → Xで認証 → 外部ブラウザへ移動せずpixivへ戻ることを確認 → アプリ再起動後のログイン維持を確認。
+この変更で認証経路の不具合は修正したが、実アカウントでのログイン成功は未検証。
