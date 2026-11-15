@@ -127,6 +127,8 @@ reg(p,r'        // HostResolverRules: 域名 → IP 直接映射\n.*?(?=        
 drop(p,'        Log.d(TAG, "Cronet config - experimental: " + experimental);\n')
 rep(p,'                .addQuicHint("oauth.secure.pixiv.net", 443, 443)\n                .setExperimentalOptions(experimental);','                .addQuicHint("oauth.secure.pixiv.net", 443, 443);')
 rep('android/app/build.gradle','applicationId "org.eu.cocomi.pxvek"','applicationId "jp.muya.pixviewer.kai"')
+rep('android/app/build.gradle','versionCode 20261001','versionCode Integer.parseInt(System.getenv("KAI_VERSION_CODE") ?: "20261002")')
+rep('android/app/build.gradle','versionName "1.37.6"','versionName (System.getenv("KAI_VERSION_NAME") ?: "1.37.6-kai.1")')
 p='capacitor.config.json'
 rep(p,'"appId": "org.eu.cocomi.pxvek"','"appId": "jp.muya.pixviewer.kai"')
 rep(p,'"appName": "Pixiv Viewer"','"appName": "pixviewer Kai (test)"')
