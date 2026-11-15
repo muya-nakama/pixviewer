@@ -134,3 +134,72 @@ rep(p,'"CapacitorHttp": {\n      "enabled": true','"CapacitorHttp": {\n      "en
 for f,needle in {'src/App.vue':'fetchNotices()','public/index.html':'VUE_APP_UMAMI_SRC','src/api/client/login.js':"console.log('code: ', code)",'android/app/src/main/java/org/eu/cocomi/pxvek/MainActivity.java':'disableSslVerification','packages/capacitor-plugin-pixiv-login/android/src/main/java/com/pixiv/login/LoginWebViewActivity.java':'handler.proceed()'}.items():
     if needle in read(f): raise RuntimeError('Audit gate failed: '+f)
 print('Hardening patch applied. Runtime safety and functionality remain unverified.')
+
+
+# KaiSafe v2: prevent guest startup errors; page until the official API stops.
+p='src/api/http.js'
+drop(p,"  console.log('=== get: ', url, params)\n","    console.log('=== get res: ', res)\n","    console.error('=== get error: ', error)\n")
+rep(p,"  try {\n    const res = await retry(async () => {","""  try {
+    // There is no anonymous backend: never fall back to a third-party service.
+    if (!localApi.APP_CONFIG.useLocalAppApi) {
+      return { error: new Error('KaiSafe: Pixiv login required for direct API search') }
+    }
+    const res = await retry(async () => {""")
+rep(p,"        resp = await localApi.actionMap[url]({ query: params, ...config })","""        const action = localApi.actionMap && localApi.actionMap[url]
+        if (typeof action !== 'function') throw new Error('KaiSafe: unsupported direct API endpoint')
+        resp = await action({ query: params, ...config })""")
+rep(p,"      resp = await axios.get(url, { params, ...config })\n      return resp.data","      throw new Error('KaiSafe: external fallback disabled')")
+p='src/views/Home/index.vue'
+rep(p,'    <div class="home-i">',"""    <div v-if="!isAppLogin" class="kai-guest-notice" style="padding:40px 24px 24px;text-align:center;">
+      <h2 style="font-size:20px;margin-bottom:18px;">KaiSafe テスト版</h2>
+      <p style="font-size:15px;line-height:1.8;">外部検索プロキシを停止しています。検索・ランキングを利用するには、検証専用のpixivアカウントで直接ログインしてください。</p>
+      <van-button style="margin-top:20px;" type="primary" @click="$router.push('/account/login')">検証用アカウントでログイン</van-button>
+    </div>
+    <div v-else class="home-i">""")
+drop(p,'        <SpotlightCard />\n')
+rep(p,"    async initSearch() {\n      const res = await api.getTags()", "    async initSearch() {\n      if (!this.isAppLogin) return\n      const res = await api.getTags()")
+p='src/utils/filter/index.js'
+reg(p,r'export const BLOCK_SEARCH_WORD_RE = /[^\n]+','export const BLOCK_SEARCH_WORD_RE = /(?!)')
+reg(p,r'export const BLOCK_RESULT_RE = /[^\n]+','export const BLOCK_RESULT_RE = /(?!)')
+reg(p,r"export async function mintVerify\(word = '', forceCheck = false\) \{.*?\n\}","export async function mintVerify(word = '', forceCheck = false) {\n  return true\n}")
+rep(p,"const res = await fetchTxt('https://hibiapi.cocomi.eu.org/sensitive-words-filter/words.txt', 1e4)","const res = '' // No third-party filter download in KaiSafe")
+p='src/api/index.js'
+reg(p,r'  async search\(word, page = 1, params = \{\}\) \{.*?(?=\n  async searchNovel\()',"""  async search(word, page = 1, params = {}) {
+    const cacheKey = 'searchList_kai_v2_' + word + '_' + page + '_' + JSON.stringify(params)
+    const cached = SessionStorage.get(cacheKey)
+    let searchList = cached?.list
+    let hasNext = cached?.hasNext
+    if (!searchList) {
+      const res = await get('/search', { word, page, ...params })
+      if (Array.isArray(res.illusts)) {
+        searchList = res.illusts.map(art => parseIllust(art))
+        hasNext = Object.prototype.hasOwnProperty.call(res, 'next_url')
+          ? Boolean(res.next_url)
+          : res.illusts.length >= 30
+        SessionStorage.set(cacheKey, { list: searchList, hasNext }, 60 * 60)
+      } else if (res.error) {
+        return { status: -1, msg: handleErrMsg(res) }
+      } else {
+        return { status: -1, msg: i18n.t('tip.unknown_err') }
+      }
+    }
+    return { status: 0, data: filterCensoredIllusts(searchList), rawLen: searchList.length, hasNext }
+  },
+""")
+p='src/views/Search/SearchRes.vue'
+rep(p,'      totalPages: 166,','      totalPages: 1,')
+rep(p,'      this.finished = false\n    },','      this.finished = false\n      this.totalPages = 1\n    },')
+reg(p,r'      console\.log\(.*?doSearch:.*?\)\n',"""      if (!this.$store.state.user) {
+        this.$toast('KaiSafe: 検索には検証用pixivアカウントでのログインが必要です')
+        this.loading = false
+        this.finished = true
+        return
+      }
+""")
+rep(p,'      if (res.status === 0) {\n        if (res.rawLen) {',"""      if (res.status === 0) {
+        this.totalPages = Math.max(this.totalPages, this.curPage + (res.hasNext ? 1 : 0))
+        if (res.rawLen) {""")
+rep(p,'            if (!this.isLoggedIn && this.curPage > 5) this.finished = true','            if (res.hasNext === false) this.finished = true')
+p='src/views/Search/SearchNovel.vue'
+rep(p,'          if (!this.isLoggedIn && this.curPage > 5) this.finished = true','          // The official API next_url, not a hard-coded 5-page cap, controls completion.')
+print('KaiSafe v2 startup and complete pagination patch applied; device testing still needed.')
