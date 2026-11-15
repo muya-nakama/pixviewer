@@ -3,6 +3,14 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths:
+      - 'app/**'
+      - 'scripts/restore-signing.py'
+      - 'scripts/update-manifest.py'
+      - 'RELEASE_NOTES.md'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle.properties'
   pull_request:
 permissions:
   contents: read
