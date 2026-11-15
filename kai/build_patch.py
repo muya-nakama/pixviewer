@@ -191,7 +191,7 @@ reg(p,r'  async search\(word, page = 1, params = \{\}\) \{.*?(?=\n  async search
 p='src/views/Search/SearchRes.vue'
 rep(p,'      totalPages: 166,','      totalPages: 1,')
 rep(p,'      this.finished = false\n    },','      this.finished = false\n      this.totalPages = 1\n    },')
-reg(p,r'      console\.log\(.*?doSearch:.*?\)\n',"""      if (!this.$store.state.user) {
+rep(p,'      console.log(' + chr(96) + 'doSearch: ${val}' + chr(96) + ')\n',"""      if (!this.$store.state.user) {
         this.$toast('KaiSafe: 検索には検証用pixivアカウントでのログインが必要です')
         this.loading = false
         this.finished = true
