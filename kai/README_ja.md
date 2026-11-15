@@ -1,21 +1,24 @@
-# pixviewer Kai 版（実験用・別APK）
+# pixviewer Kai版（個人検証用・別APK）
 
-通常版 **pixviewer.apk** とは異なるアプリID \`jp.muya.pixviewer.kai\` を持つ検証用APKです。通常版のデータは上書きしません。
+通常版 `pixviewer.apk` と別のアプリID `jp.muya.pixviewer.kai` を使用します。通常版の設定とログイン状態を上書きしません。
 
-## APKの取得手順（Galaxy）
+## APK取得方法
 
-1. https://github.com/muya-nakama/pixviewer/actions/workflows/build-kai-test.yml を開く。
-2. **Run workflow（ワークフローを実行）** → Branch **main** → **Run workflow**。
-3. 実行履歴の新しい行を開く。緑のチェックが付いたら、下部の **Artifacts** から \`pixviewer-kai-test-apk\` を選ぶ。
-4. ダウンロードしたZIP内の \`pixviewer-kai.apk\` を取り出してインストールする。
+1. [Kai版ビルド](https://github.com/muya-nakama/pixviewer/actions/workflows/build-kai-test.yml) を開く。
+2. **Run workflow** → **main** → **Run workflow** を押す。
+3. 実行履歴が成功（緑のチェック）になった場合、[Releases](https://github.com/muya-nakama/pixviewer/releases) を開く。
+4. 自分のGitHubアカウントでログインした状態なら、未公開（**Draft**）の `pixviewer Kai test` が表示されます。その中の **pixviewer-kai.apk** をダウンロードする。
+5. GalaxyでAPKを開いてインストールする。
 
-※Artifactsは通常のReleasesとは別です。公開ダウンロードにせず、GitHubアカウントにログインした本人が取得する実験用の構成です。Artifacts保存期間は7日。
+**重要：** 通常版がある公開Releasesには未検証のAPKを公開しないため、Kai版は**下書きのRelease**として保存します。他人は下書きを閲覧できません（リポジトリへの書き込み権限があるアカウントを除く）。GitHubアカウントのログインが必要です。
 
-## 重要な注意
+## 現在の制約
 
-- APKのビルド・インストール・ログイン・検索結果・画像表示・実通信先は、成功が確認されるまで**未検証**です。
-- **メインのpixivアカウントではログインしないこと。** テスト専用アカウントを使う。
-- 第三者APIへのアクセスを制限した影響で、未ログイン検索や一部の補助機能は動かない可能性があります。
-- 認証情報は永続化せず、そのWebViewセッション中だけ保持します。ログイン状態が再起動後に消える場合があります。
-- 通信先のホワイトリストは安全性を高める初期対策で、APK全体の完全な監査ではありません。
-- 元プロジェクトは https://github.com/asadahimeka/pixiv-viewer-app （AGPL-3.0-only）。このテストAPKは非公式です。
+- APKのビルド成功、アプリの起動、ログイン、検索、画像取得、通信監視は未確認です。
+- テスト専用pixivアカウントを使用し、メインアカウントではログインしないでください。
+- 外部プロキシを遮断するため、未ログイン検索や一部機能は失敗する可能性があります。
+- 認証情報は暫定的にWebViewセッション内だけに保持する構成です。
+- デバッグ署名APKなので、次回テスト版を上書きできずアンインストールが必要になる場合があります。
+- この改修は完全なセキュリティ監査ではありません。
+
+元ソース： https://github.com/asadahimeka/pixiv-viewer-app （AGPL-3.0-only）。
