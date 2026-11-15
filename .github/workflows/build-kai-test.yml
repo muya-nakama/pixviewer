@@ -6,22 +6,20 @@ on:
     branches: [kai-assistant-build-20261115]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-kai:
-    name: Build isolated unsigned Kai APK
+    name: Build isolated Kai test APK
     runs-on: ubuntu-24.04
     timeout-minutes: 70
-    permissions:
-      contents: read
     steps:
-      - name: Checkout trusted build scripts
+      - name: Checkout pixviewer build scripts
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Fetch pinned upstream Kai source
+      - name: Fetch locked Kai source
         shell: bash
         run: |
           set -euo pipefail
@@ -40,12 +38,6 @@ jobs:
           ! grep -R -F "handler.proceed()" upstream/packages/capacitor-plugin-pixiv-login/android/src/main/java/com/pixiv/login/
           ! grep -F "disableSslVerification" upstream/android/app/src/main/java/org/eu/cocomi/pxvek/MainActivity.java
           ! grep -F "console.log('code: ', code)" upstream/src/api/client/login.js
-
-      - name: Set version monotonically
-        shell: bash
-        run: |
-          echo "KAI_VERSION_CODE=$((20261001 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
-          echo "KAI_VERSION_NAME=1.37.6-kai.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -71,7 +63,7 @@ jobs:
           packages: platform-tools platforms;android-35 build-tools;35.0.0
           log-accepted-android-sdk-licenses: false
 
-      - name: Install pinned dependencies
+      - name: Install exact dependencies
         working-directory: upstream
         run: pnpm install --frozen-lockfile
 
@@ -94,89 +86,30 @@ jobs:
         working-directory: upstream
         run: npx cap sync android
 
-      - name: Build unsigned release APK
+      - name: Build debug-signed test APK
         working-directory: upstream/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleDebug --no-daemon
 
-      - name: Check package and upload unsigned build
+      - name: Prepare APK and checksum
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp upstream/android/app/build/outputs/apk/release/app-release-unsigned.apk dist/pixviewer-kai-unsigned.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging dist/pixviewer-kai-unsigned.apk | grep -F "package: name='jp.muya.pixviewer.kai'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging dist/pixviewer-kai-unsigned.apk | grep -F "versionCode='${KAI_VERSION_CODE}'"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: kai-unsigned
-          path: dist/pixviewer-kai-unsigned.apk
-          retention-days: 1
-          if-no-files-found: error
+          cp upstream/android/app/build/outputs/apk/debug/app-debug.apk dist/pixviewer-kai.apk
+          cd dist
+          sha256sum pixviewer-kai.apk > pixviewer-kai.sha256
 
-  sign-kai:
-    name: Sign and save Kai test APK
-    needs: build-kai
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout signing script only
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: kai-unsigned
-          path: dist
-
-      - name: Set up Android signer
-        uses: android-actions/setup-android@v3
-        with:
-          packages: platform-tools platforms;android-35 build-tools;35.0.0
-          log-accepted-android-sdk-licenses: false
-
-      - name: Restore stable private signing key
-        env:
-          ANDROID_SIGNING: ${{ secrets.ANDROID_SIGNING }}
+      - name: Save APK to owner-only draft release
         shell: bash
-        run: |
-          set -euo pipefail
-          if [ -z "$ANDROID_SIGNING" ]; then
-            echo "::error::ANDROID_SIGNING secret missing; refusing to publish an unstable-signature APK"
-            exit 1
-          fi
-          python3 scripts/restore-signing.py
-
-      - name: Align, sign, and verify APK
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -s dist/pixviewer-kai-unsigned.apk
-          test -f "$PIXVIEWER_KEYSTORE"
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 dist/pixviewer-kai-unsigned.apk dist/pixviewer-kai-aligned.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
-            --ks "$PIXVIEWER_KEYSTORE" --ks-type PKCS12 \
-            --ks-key-alias pixviewer \
-            --ks-pass env:PIXVIEWER_STORE_PASSWORD \
-            --key-pass env:PIXVIEWER_STORE_PASSWORD \
-            --out dist/pixviewer-kai.apk dist/pixviewer-kai-aligned.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose dist/pixviewer-kai.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging dist/pixviewer-kai.apk | grep -F "package: name='jp.muya.pixviewer.kai'"
-          rm -f dist/pixviewer-kai-unsigned.apk dist/pixviewer-kai-aligned.apk
-          (cd dist && sha256sum pixviewer-kai.apk > pixviewer-kai.sha256)
-
-      - name: Save verified APK to private draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
         run: |
           set -euo pipefail
-          tag="kai-fixed-${GITHUB_RUN_NUMBER}"
+          tag="kai-test-${GITHUB_RUN_NUMBER}"
           gh release create "$tag" --target "$GITHUB_SHA" \
-            --title "pixviewer Kai signed test #${GITHUB_RUN_NUMBER}" \
-            --notes "固定署名のKaiSafeテストAPK。旧デバッグ署名版からは上書き不可。最初の一度だけ旧Kai版のアンインストールが必要です。通常版pixviewerは削除不要。実機未検証、メインのpixivアカウントでログインしないでください。" \
+            --title "pixviewer Kai test #${GITHUB_RUN_NUMBER}" \
+            --notes "未検証のテストAPK。通常版とは別アプリです。メインのpixivアカウントでログインしないでください。" \
             --draft --prerelease \
             dist/pixviewer-kai.apk dist/pixviewer-kai.sha256
