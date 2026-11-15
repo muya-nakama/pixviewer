@@ -1,6 +1,8 @@
 name: Build pixviewer Kai test APK
 
 on:
+  push:
+    branches: [kai-assistant-build-20261115]
   workflow_dispatch:
 
 permissions:
