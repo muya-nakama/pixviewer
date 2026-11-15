@@ -1,0 +1,108 @@
+name: Build pixviewer Kai test APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-kai:
+    name: Build isolated Kai test APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - name: Checkout pixviewer build scripts
+        uses: actions/checkout@v4
+
+      - name: Fetch locked Kai source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init upstream
+          git -C upstream remote add origin https://github.com/asadahimeka/pixiv-viewer-app.git
+          git -C upstream fetch --depth=1 origin 426574d0e5a5dfc57c6621ff64302ec52fa77636
+          git -C upstream checkout --detach FETCH_HEAD
+          test "$(git -C upstream rev-parse HEAD)" = "426574d0e5a5dfc57c6621ff64302ec52fa77636"
+
+      - name: Apply and inspect security changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile kai/build_patch.py
+          python3 kai/build_patch.py upstream
+          ! grep -R -F "handler.proceed()" upstream/packages/capacitor-plugin-pixiv-login/android/src/main/java/com/pixiv/login/
+          ! grep -F "disableSslVerification" upstream/android/app/src/main/java/org/eu/cocomi/pxvek/MainActivity.java
+          ! grep -F "console.log('code: ', code)" upstream/src/api/client/login.js
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: upstream/pnpm-lock.yaml
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
+          log-accepted-android-sdk-licenses: false
+
+      - name: Install exact dependencies
+        working-directory: upstream
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Kai native UI
+        working-directory: upstream
+        env:
+          VUE_APP_PLATFORM: android
+          BROWSERSLIST_ENV: capacitor
+          VUE_APP_DEF_HIBIAPI_MAIN: ''
+          VUE_APP_DEF_PXIMG_MAIN: i.pximg.net
+          VUE_APP_DEF_APP_API_PROXY: ''
+          VUE_APP_PXIMG_PROXYS: ''
+          VUE_APP_COMMON_PROXY: ''
+          VUE_APP_UMAMI_SRC: ''
+          VUE_APP_UMAMI_ID: ''
+          VUE_APP_SERVER_TRANSLATE_URL: ''
+        run: pnpm run build:web
+
+      - name: Sync Android files
+        working-directory: upstream
+        run: npx cap sync android
+
+      - name: Build debug-signed test APK
+        working-directory: upstream/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Prepare APK and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp upstream/android/app/build/outputs/apk/debug/app-debug.apk dist/pixviewer-kai.apk
+          cd dist
+          sha256sum pixviewer-kai.apk > pixviewer-kai.sha256
+
+      - name: Upload owner-downloadable test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixviewer-kai-test-apk
+          path: |
+            dist/pixviewer-kai.apk
+            dist/pixviewer-kai.sha256
+          retention-days: 7
+          if-no-files-found: error
