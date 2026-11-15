@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-kai:
@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout pixviewer build scripts
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Fetch locked Kai source
         shell: bash
@@ -97,12 +99,15 @@ jobs:
           cd dist
           sha256sum pixviewer-kai.apk > pixviewer-kai.sha256
 
-      - name: Upload owner-downloadable test APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: pixviewer-kai-test-apk
-          path: |
-            dist/pixviewer-kai.apk
-            dist/pixviewer-kai.sha256
-          retention-days: 7
-          if-no-files-found: error
+      - name: Save APK to owner-only draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="kai-test-${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" --target "$GITHUB_SHA" \
+            --title "pixviewer Kai test #${GITHUB_RUN_NUMBER}" \
+            --notes "未検証のテストAPK。通常版とは別アプリです。メインのpixivアカウントでログインしないでください。" \
+            --draft --prerelease \
+            dist/pixviewer-kai.apk dist/pixviewer-kai.sha256
